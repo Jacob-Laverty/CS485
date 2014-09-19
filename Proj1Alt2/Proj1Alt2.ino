@@ -1,5 +1,6 @@
 
 
+
 /***
 ****  INSTRUCTIONS FOR USE OF THIS FILE
 ****  This file is meant for the AltSoftSerial library.  This library requires
@@ -31,10 +32,11 @@
 #define WALL_FOLLOW 1
 #define BUG_ZERO 2
 #define SQUARE 3
+#define POTENTIAL_FIELDS 4
 
 #define ALTSERIAL 1
 #define DEBUG 0
-#define DEMO SQUARE
+#define DEMO SQUARE  //change to test different demos
 
 // Microcontroller pin set up
 const int RX = 8;
@@ -378,6 +380,10 @@ unsigned char straightLinePID(unsigned char* rtrn) {
   rtrn[1] = right_PID;  
 }
 
+//move in a square infinite times
+int ticks=0;  //for case 3
+int rightTicks=0;
+
 /* 
  * Function for sending commands to the CMU Cam2
  * where no return data aside from the 'ACK' 
@@ -637,10 +643,10 @@ void resetCamera()
 void setup()
 {
   Serial.begin(115200);
-  cmucam.begin(57600);
+  /*cmucam.begin(57600);
   cmucam.write("\xff") ;  // write a dummy character to fix setTX bug
   delay(500);
-  cmucam.listen();
+  cmucam.listen();*/
   
   // Attach the wheel watchers
   attachInterrupt(INTERRUPT_1, _updateLeftEncoder, FALLING); 
@@ -654,7 +660,7 @@ void setup()
 #endif
   leftWheel.attach(11);
   
-  resetCamera();
+  //resetCamera();
 }
 
 void loop()
@@ -681,11 +687,11 @@ void loop()
   // You want a blob with a moderate confidence (perhaps over 20?)
   // Else it's probably just noise.
         
-  if (!cmucam2_get("TC 200 240 0 40 0 40", 'T', packet, false))
+  /*if (!cmucam2_get("TC 200 240 0 40 0 40", 'T', packet, false))
     {
       Serial.println("Camera FAILED.  Resetting...");
       resetCamera();
-    }
+    }*/
   
   int b = 0;
   // Read incoming value from packet 6 (packet 6 = can I see ANY pixels I want?)
@@ -708,6 +714,7 @@ void loop()
   lfIR = analogRead(LEFT_FACING_IR_PIN);
   lffIR = analogRead(LEFT_FRONT_FACING_IR_PIN);
   
+  
   switch(DEMO) {
     //Blob thin
     case 0:
@@ -724,17 +731,32 @@ void loop()
       break;
     
     case 3:
-      Serial.println("-----------------------------");
-      Serial.print("LEFT ENCODER TICKS: ");
-      Serial.print(leftWW);
-      Serial.print(" RIGHT ENCODER TICKS: ");
-      Serial.print(rightWW);
-      straightLinePID(pids);
-      //Left needs to move farther than right
-      motorLeft(0.1 + 0.01*pids[0]);
-      motorRight(0.1 + 0.01*pids[0]);
       
-      Serial.println("\n-----------------------------");
+      if(ticks<380){
+        straightLinePID(pids);
+        //Left needs to move farther than right
+        motorLeft(0.05 + 0.01*pids[0]);
+        motorRight(0.05 + 0.01*pids[0]);
+        ticks+=rightWW;
+      }
+      //turn right 90 degrees
+      else if(rightTicks< 17){
+        straightLinePID(pids);
+        motorLeft(0.05 + 0.01*pids[0]);
+        motorRight(-0.05 - 0.01*pids[0]);
+        rightTicks-=rightWW;
+      }else{ //reset ticks to do another line of the square
+        ticks=0;
+        rightTicks=0;
+      }
+        break;
+        
+     case 4:
+       //use infrared sensors to determine if there is an object nearby.  the nearer the object gets
+       //to the IR sensors, the greater the negative force on the flockbot's movement
+       
+       break;
+       
       /*
       if(leftWW >= pids[0] && rightWW >= pids[1]) {
         Serial.println("UPDATING");
@@ -795,5 +817,4 @@ void loop()
   }
 
 }
-
 
