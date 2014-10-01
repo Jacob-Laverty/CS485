@@ -32,11 +32,11 @@
 #define WALL_FOLLOW 1
 #define BUG_ZERO 2
 #define SQUARE 3
-#define POTENTIAL_FIELDS 4
+#define P_FIELDS 4
 
 #define ALTSERIAL 1
-#define DEBUG 0
-#define DEMO SQUARE  //change to test different demos
+#define DEBUG 1
+#define DEMO P_FIELDS  //change to test different demos
 
 // Microcontroller pin set up
 const int RX = 8;
@@ -384,6 +384,36 @@ unsigned char straightLinePID(unsigned char* rtrn) {
 int ticks=0;  //for case 3
 int rightTicks=0;
 
+
+#define P_LOST 0
+#define P_ATTR 1
+#define P_REPEL 2
+#define P_CONVERT 3
+#define P_MOVE 4
+
+int P_STATE = P_LOST;
+
+int findGoal(unsigned char* p) {
+  Serial.println(" PIXELS: ");
+  Serial.print(p[6]);
+  if(p[6] == 0){
+    motorLeft(0.05);
+    motorRight(0);
+    return P_LOST;
+  } else if(p[6] >= 0 && p[1] > 55) {
+    motorLeft(0.05);
+    motorRight(0);
+    return P_LOST;
+  } else if (p[6] >= 0 && p[1] < 55) {
+    motorRight(0.05);
+    motorLeft(0);
+    return P_LOST;
+  } else {
+    return P_MOVE;
+  }
+}
+
+
 /* 
  * Function for sending commands to the CMU Cam2
  * where no return data aside from the 'ACK' 
@@ -643,10 +673,10 @@ void resetCamera()
 void setup()
 {
   Serial.begin(115200);
-  /*cmucam.begin(57600);
+  cmucam.begin(57600);
   cmucam.write("\xff") ;  // write a dummy character to fix setTX bug
   delay(500);
-  cmucam.listen();*/
+  cmucam.listen();
   
   // Attach the wheel watchers
   attachInterrupt(INTERRUPT_1, _updateLeftEncoder, FALLING); 
@@ -660,9 +690,10 @@ void setup()
 #endif
   leftWheel.attach(11);
   
-  //resetCamera();
+  resetCamera();
 }
 
+int center = 0;
 void loop()
 {
   SoftwareServo::refresh();
@@ -687,11 +718,11 @@ void loop()
   // You want a blob with a moderate confidence (perhaps over 20?)
   // Else it's probably just noise.
         
-  /*if (!cmucam2_get("TC 200 240 0 40 0 40", 'T', packet, false))
-    {
-      Serial.println("Camera FAILED.  Resetting...");
-      resetCamera();
-    }*/
+  if (!cmucam2_get("TC 200 240 0 40 0 40", 'T', packet, false))
+  {
+    Serial.println("Camera FAILED.  Resetting...");
+    resetCamera();
+  }
   
   int b = 0;
   // Read incoming value from packet 6 (packet 6 = can I see ANY pixels I want?)
@@ -717,20 +748,20 @@ void loop()
   
   switch(DEMO) {
     //Blob thin
-    case 0:
+    case SERVOING:
      targetFindAndMove(packet);
     break;
   
     //Wall Follow
-    case 1:   
+    case WALL_FOLLOW:   
       followWall();
       break;
      
-    case 2:
+    case BUG_ZERO:
       bugZero(packet);
       break;
     
-    case 3:
+    case SQUARE:
       
       if(ticks<380){
         straightLinePID(pids);
@@ -751,10 +782,41 @@ void loop()
       }
         break;
         
-     case 4:
+     case P_FIELDS:
        //use infrared sensors to determine if there is an object nearby.  the nearer the object gets
        //to the IR sensors, the greater the negative force on the flockbot's movement
+       //Create a function that forces the robot away from obstalces based on IR parameters.
        
+       switch(P_STATE) {
+         case P_LOST:
+          P_STATE = findGoal(packet);
+          break;
+
+          case P_MOVE:
+            //If there is nothing in front of me, move to the goal.
+            if(cIR <= 300) {
+              if(center == 0) {
+                motorLeft(0.05);
+                motorRight(0.05);
+              } else if (center > 0) {
+                motorRight(0.1);
+                motorLeft(0.05);
+              } else {
+                  motorRight(0.05);
+                  motorLeft(0.1);
+              }
+            } else {
+              if(rffIR >= 350) {
+                motorLeft(0.1);
+                motorRight(0.05);
+                center += leftWW;
+               } else if(lffIR >= 350) {
+                 motorRight(0.1);
+                 motorLeft(0.05);
+                 center -= rightWW;
+               }
+            }
+       }
        break;
        
       /*
