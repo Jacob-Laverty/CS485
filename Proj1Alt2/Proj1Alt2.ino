@@ -764,6 +764,7 @@ void loop()
     case SQUARE:
       
       if(ticks<380){
+        Serial.print("Ticks: ");
         straightLinePID(pids);
         //Left needs to move farther than right
         motorLeft(0.05 + 0.01*pids[0]);
