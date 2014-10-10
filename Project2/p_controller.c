@@ -3,7 +3,7 @@
 //Control Left and right wheel distances
 int PControl(int distance) {
 	//Set speed to linear p control
-	int8_t speed = (distance	- OFFSET) * K;
+	int8_t speed = (distance	- OFFSET) * PCONTROLLER_K;
 	//If bigger than Max set to max. If smaller than -limit set to -limit
 	speed = (speed > LIMIT) ? LIMIT : (speed < -LIMIT) ? -LIMIT : speed;
 }

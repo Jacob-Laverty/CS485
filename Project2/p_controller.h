@@ -5,7 +5,7 @@
 #include "flockbot_api.h"
 
 
-#define K 0.3
+#define PCONTROLLER_K 0.3
 #define LIMIT 10
 #define OFFSET 40
 #define DEBUG true
