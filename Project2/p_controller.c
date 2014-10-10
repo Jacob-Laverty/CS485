@@ -1,34 +1,4 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <signal.h>
-
-#include "flockbot_api.h"
-
-#define K 0.3
-#define LIMIT 10
-#define OFFSET 40
-#define DEBUG true
-#define SMARTKILL true
-
-#define DEMO PCONTROL
-
-//Could #define these but thats getting to be too many defines imo
-typedef enum {PCONTROL, TRIANGULATION, AWESOME} demo_types_t;
-demo_types_t demo = DEMO;
-
-#ifdef SMARTKILL
-	void handler(int signum) {
-	
-		printf("Caught kill signal. Cleaning up robot.\n");
-		robot_stop();
-		shutdown_api();
-
-		printf("Shutting down.\n");
-		exit(signum);
-	}
-#endif
-
+#include "p_controller.h"
 
 //Control Left and right wheel distances
 int PControl(int distance) {
@@ -38,7 +8,7 @@ int PControl(int distance) {
 	speed = (speed > LIMIT) ? LIMIT : (speed < -LIMIT) ? -LIMIT : speed;
 }
 
-void PControlLoop() {
+void ControlLoop() {
 	while(1){
 		//Set left and right distances from object
 		int r_distance = get_ir(4);
@@ -81,27 +51,4 @@ void PControlLoop() {
 		//Sleep for half a second so we can let the robot move.
 		usleep(50000);
 	}
-}
-
-int main() 
-{
-	initialize_api();
-	robot_connect("127.0.0.1");
-	
-	//Catch Ctrl+C and actually shutdown the robot.
-	signal(SIGINT, handler);
-
-	switch(demo) {
-		case PCONTROL:	
-			PControlLoop();
-			break;
-		case TRIANGULATION:
-			printf("Working on it...\n");
-			break;
-		case AWESOME:
-			printf("No idea wtf we are doing for this...\n");
-	}
-	robot_stop();
-	shutdown_api();
-	return 0;
 }
