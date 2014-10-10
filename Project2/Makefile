@@ -50,8 +50,8 @@ barcode_test: flockbot_api.o $(VISION_LIB_DIR)/barcode.o barcode_test.cpp
 api_test: flockbot_api.o api_test.c
 	$(CC) $(CFLAGS) $(DAEMON_INCLUDES) -o $@ $^ -pthread
 
-demo: flockbot_api.o p_controller.c demo_utils.c demo.c
-	$(CC) $(CFLAGS) $(DAEMON_INCLUDES) -o $@ $^ -pthread
+demo: flockbot_api.o $(VISION_LIB_DIR)/barcode.o demo_vision.cpp p_controller.c demo_utils.c demo.c
+	$(CPP) $(CPFLAGS) $(DAEMON_INCLUDES) $(VISION_LIBS) $(VISION_INCLUDES) -o $@ $^ -pthread
 
 
 pid: flockbot_api.o pid.c

@@ -3,9 +3,9 @@
 #include "flockbot_api.h"
 
 #define SMARTKILL true
-#define DEMO PCONTROL
+#define DEMO TRIANGULATION
 typedef enum {PCONTROL, TRIANGULATION, AWESOME} demo_type_t;
 
 void robot_init();
 void robot_kill();
-void handler();
+void handler(int signum);

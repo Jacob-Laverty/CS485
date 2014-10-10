@@ -1,4 +1,5 @@
 #include "p_controller.h"
+#include "demo_vision.hpp"
 #include "demo_utils.h"
 
 int main() {
@@ -10,7 +11,7 @@ int main() {
 			ControlLoop();
 			break;
 		case TRIANGULATION:
-			printf("Working on it");
+			demo_vision();
 			break;
 		case AWESOME:
 			printf("Also working on it");
