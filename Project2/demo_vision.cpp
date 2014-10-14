@@ -7,12 +7,25 @@ pthread_t vision_thread; // Thread to run the barcode processing module
 int** barcodes;
 int* xy;
 
+typedef enum {ONE, TWO, THREE, FOUR} quadrant;
+quadrant q = ONE; 
+
+
+
 struct Can {
 	uint32_t ucid;
-	float theta;
-	float omega;
+	float thetaR;
+	float omegaR;
+
+	float thetaD;
+	float omegaD;
+	
 	float x;
 	float y;
+
+	float xRelative;
+	float yRelative;
+
 	int quad_angle;		
 };
 struct Can** cans;
@@ -28,6 +41,8 @@ double dist_to_can(int can_y)
 void shiftXY(int* xy) {
 	xy[0] -= 400;
 	xy[1] = (xy[1]*-1) + 300;
+
+	printf("SHIFTED Y VALUE: %d\n", xy[1]);
 }
 
 void scan() {
@@ -90,18 +105,37 @@ void scan() {
 						printf("SETTING BARCODE: %d\n", sum);
 						cans[c]->ucid = sum;
 						printf("ROBOT HAS TURNED: %d\n", 10*n);
-						cans[c]->omega = (atan2(-1*ab[0], M) * 180 / 3.14159);
-						cans[c]->theta = (atan2(ab[1], M) * 180/3.14159);		
+						cans[c]->omegaR = atan2(-1*ab[0], M); // Omega in radians
+						cans[c]->omegaD = cans[c]->omegaR * (180 / 3.14159); //Omega angle in degrees
+
+						cans[c]->thetaR = atan2(ab[1], M); 	//Theta angle in radians
+						cans[c]->thetaD = cans[c]->thetaR * (180/3.14159);	//Theta in degrees
+
 						cans[c]->quad_angle = 10 * n;  //records quadrant that the robot is facing
 									
-						printf("FOUND CAN AT AN ANGLE OF: %f\n", cans[c]->omega);
+						printf("FOUND CAN AT AN ANGLE OF: %f\n", cans[c]->omegaD);
 						found = 1;
+
 						/*Find X, Y */
-						cans[c]->x = Z/(tan(cans[c]->theta));
-						cans[c]->y = -1*cans[c]->x*tan(cans[c]->omega);	
+						cans[c]->x = Z/(tan(cans[c]->thetaR));
+						cans[c]->y = -1*cans[c]->x*tan(cans[c]->omegaR);	
+						float hyp = sqrt(pow(cans[c]->x, 2)+pow(cans[c]->y, 2));
+						if(n*10 + cans[c]->omegaD < 90) {
+								cans[c]->xRelative = hyp*(cos(((cans[c]->omegaD+cans[c]->quad_angle)*3.14159)/180));
+								cans[c]->yRelative = hyp*(sin(((cans[c]->omegaD+cans[c]->quad_angle)*3.14159)/180));
+						} else if(n*10 + cans[c]->omegaD < 180) {
+								cans[c]->xRelative = -1*hyp*(cos(((180-(cans[c]->omegaD+cans[c]->quad_angle))*3.14159)/180));
+								cans[c]->yRelative = hyp*(sin(((180-(cans[c]->omegaD+cans[c]->quad_angle))*3.14159)/180));
+						} else if(n*10 + cans[c]->omegaD < 270) {
+								cans[c]->xRelative = -1*hyp*(cos((((cans[c]->omegaD+cans[c]->quad_angle)-180)*3.14159)/180));
+								cans[c]->yRelative = -1*hyp*(sin((((cans[c]->omegaD+cans[c]->quad_angle)-180)*3.14159)/180));
+						} else {
+								cans[c]->xRelative = hyp*(cos(((360-(cans[c]->omegaD+cans[c]->quad_angle))*3.14159)/180));
+								cans[c]->yRelative = -1*hyp*(sin(((360-(cans[c]->omegaD+cans[c]->quad_angle))*3.14159)/180));
+						}
 						/*end find */
-						printf("Robot x coordinate: %f\n", cans[c]->x);
-						printf("Robot y coordinate: %f\n", cans[c]->y);
+						printf("Robot x coordinate: %f\n", cans[c]->xRelative);
+						printf("Robot y coordinate: %f\n", cans[c]->yRelative);
 					}
 					c+=1;
 				}
@@ -119,14 +153,14 @@ void scan() {
 void calculateCentroid(){
 	float center_x, center_y, angle=0;
 	for(int n=0; n<3; n++){
-		center_x += cans[n]->x;
-		center_y += cans[n]->y;	
+		center_x += cans[n]->xRelative;
+		center_y += cans[n]->yRelative;	
 	}	
 	center_x /=3;
 	center_y/=3;
 	angle = atan2(center_y,center_x)*180/3.14159;
 	turn_robot_wait(10,angle);
-	move_distance_wait(10, sqrt(pow(center_x, 2)+pow(center_y, 2)));	
+	move_distance_wait(50, sqrt(pow(center_x, 2)+pow(center_y, 2)));	
 }
 int DemoVision() 
 {
@@ -160,16 +194,15 @@ int DemoVision()
 	for(int n=0; n<3; n++) {
 		printf("BARCODE 1: \n");
 		printf("\tUCID: %d\n",cans[n]->ucid);
-		printf("\tOMEGA: %f\n",cans[n]->omega);
-		printf("\tTHETA: %f\n",cans[n]->theta);
+		printf("\tOMEGA: %f\n",cans[n]->omegaD);
+		printf("\tTHETA: %f\n",cans[n]->thetaD);
 		printf("\tX: %f\n",cans[n]->x);
 		printf("\tY: %f\n",cans[n]->y);
 		printf("\tDISTANCE: %f\n", sqrt(pow(cans[n]->x, 2) + pow(cans[n]->y, 2)));
 	}
-
+	printf("Moving to center\n");
 	calculateCentroid();
 	
-
 	free(barcodes);
 
 	/* BEGIN - Do not touch block */
