@@ -20,6 +20,8 @@
 #define MIN_BAR_WIDTH 2
 #define ALLOWED_SKEW 100
 #define OTSU_THRESHOLD -1
+#define M 802    //M given
+#define Z 20     //height -2 (difference in height from the bottom of the barcode on the can to the camera height
 
 //Shifts x and y to center
 void shiftXY(int* xy);

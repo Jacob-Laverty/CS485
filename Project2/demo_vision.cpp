@@ -9,10 +9,11 @@ int* xy;
 
 struct Can {
 	uint32_t ucid;
-	float angle;
-	int x;
-	int y;		
-	double distance;
+	float theta;
+	float omega;
+	float x;
+	float y;
+	int quad_angle;		
 };
 struct Can** cans;
 
@@ -88,14 +89,25 @@ void scan() {
 					if(cans[c]->ucid == 0) {
 						printf("SETTING BARCODE: %d\n", sum);
 						cans[c]->ucid = sum;
-						printf("ROBOT HAS TURNED: %d", 10*n);
-						cans[c]->angle = (atan2(-1*ab[0], 802) * 180 / 3.14159) + (10*n);						
-						printf("FOUND CAN AT AN ANGLE OF: %f", cans[c]->angle);
+						printf("ROBOT HAS TURNED: %d\n", 10*n);
+						cans[c]->omega = (atan2(-1*ab[0], M) * 180 / 3.14159);
+						cans[c]->theta = (atan2(ab[1], M) * 180/3.14159);		
+						cans[c]->quad_angle = 10 * n;  //records quadrant that the robot is facing
+									
+						printf("FOUND CAN AT AN ANGLE OF: %f\n", cans[c]->omega);
 						found = 1;
+						/*Find X, Y */
+						cans[c]->x = Z/(tan(cans[c]->theta));
+						cans[c]->y = -1*cans[c]->x*tan(cans[c]->omega);	
+						/*end find */
+						printf("Robot x coordinate: %f\n", cans[c]->x);
+						printf("Robot y coordinate: %f\n", cans[c]->y);
 					}
 					c+=1;
 				}
 			}
+			
+
 			free(xy); // FREE ME
 			//	printf("\t\tSHIFTED x/y loc: (%d,%d)", ab[0], ab[1]);
 		}
@@ -104,12 +116,23 @@ void scan() {
 	}
 }
 
+void calculateCentroid(){
+	float center_x, center_y, angle=0;
+	for(int n=0; n<3; n++){
+		center_x += cans[n]->x;
+		center_y += cans[n]->y;	
+	}	
+	center_x /=3;
+	center_y/=3;
+	angle = atan2(center_y,center_x)*180/3.14159;
+	turn_robot_wait(10,angle);
+	move_distance_wait(10, sqrt(pow(center_x, 2)+pow(center_y, 2)));	
+}
 int DemoVision() 
 {
 	cans = (Can**) calloc(sizeof(struct Can*), 3);
 	for(int num_cans=0; num_cans < 3; num_cans++) {
-		cans[num_cans] = (Can*) malloc(sizeof(struct Can));
-		cans[num_cans]->ucid = 0;
+		cans[num_cans] = (Can*) calloc(sizeof(struct Can), 1);
 	}
 	int index;
 
@@ -132,10 +155,20 @@ int DemoVision()
 	/* BEGIN - Do not touch block */
 	pthread_create(&vision_thread, NULL, barcode_start, NULL);
 	scan();
+
+		printf("BARCDOES: \n");
 	for(int n=0; n<3; n++) {
-		printf("BARCDOES: %d\n", cans[n]->ucid);
+		printf("BARCODE 1: \n");
+		printf("\tUCID: %d\n",cans[n]->ucid);
+		printf("\tOMEGA: %f\n",cans[n]->omega);
+		printf("\tTHETA: %f\n",cans[n]->theta);
+		printf("\tX: %f\n",cans[n]->x);
+		printf("\tY: %f\n",cans[n]->y);
+		printf("\tDISTANCE: %f\n", sqrt(pow(cans[n]->x, 2) + pow(cans[n]->y, 2)));
 	}
-	turn_robot_wait(10, cans[0]->angle);
+
+	calculateCentroid();
+	
 
 	free(barcodes);
 
