@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,6 +7,8 @@
 
 #include "flockbot_api.h"
 #include "barcode.hpp"
+
+#define DEBUG true
 
 #define IMAGE_WIDTH 800
 #define IMAGE_HEIGHT 600
@@ -20,4 +23,5 @@
 
 //Shifts x and y to center
 void shiftXY(int* xy);
+void scan();
 extern "C" int DemoVision();
