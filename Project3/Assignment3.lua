@@ -20,7 +20,8 @@ stopRobot = {}
 xPrime = 0;
 yPrime = 0;
 aPrime = 0;
-
+xDouble = 1;  --x" for task 1
+yDouble = 2;  --y" for task 1
 
 behaviors = {init_j, localize, faceXY, moveToXY, stopRobot}
 states = {"start", "go", "stop"}
@@ -61,7 +62,6 @@ faceXY["start"] = function(hfa)
 
   aPrime = math.atan2(deltaY, deltaX);
 
-  --aPrime = aPrime * (180/math.pi);
 
   -- Rotate until we are facing where we want to be facing
   print("I need to go to this angle: ");
@@ -81,7 +81,6 @@ end
 -- Stop the robot from doing shenanigans
 stopRobot["start"] = function(hfa)
   print("stop start");
-  darwin.setVelocity(0,0,0);
   darwin.stop();
 end
 
@@ -135,7 +134,7 @@ machine = makeHFA("machine", makeTransition({
     x = v.x;
     y = v.y;
     a = v.a;
-
+    print("target X: " .. xPrime .. "\ttarget Y: " .. yPrime .. "\n";
     deltaX = xPrime - x;
     deltaY = yPrime - y;
 
@@ -144,23 +143,26 @@ machine = makeHFA("machine", makeTransition({
 		print("Current angle: ");
 		print(aPrime);
 
-    --aPrime = aPrime * (180/math.pi);
 
-    if math.abs(wcm.get_pose().a - aPrime) < 0.5 then
-      return moveToXY_b
-    else
-      return faceXY_b
+    if math.abs(wcm.get_pose().a - aPrime) < 0.5 and xPrime ~= xDouble and yPrime ~= yDouble then --not yet at target 1
+      return moveToXY_b;
+    else if math.abs(wcm.get_pose().a - aPrime) < 0.5  --at target 1, face target 2
+      return faceXY_b;
+    else --at target 1, facing target 2
+      stopRobot_b;
     end
   end,
 
   [moveToXY_b] = function()
     v = wcm.get_pose();
-    if v.x == x and v.y == y then
-      return stopRobot_b;
-    elseif counter == 100 then
+    if v.x == x and v.y == y then  --if we're at target 1, look at target 2
+      xPrime = xDouble;  --we're at target 1 so we redefine xPrime and yPrime to the new target coordinates and then call faceXY
+      yPrime = yDouble;
+      return faceXY_b;
+    elseif counter == 100 then  --find out where we are
       counter = 0;
       return localize_b;
-    else
+    else   --otherwise keep moving toward target
       counter = counter + 1;
       return moveToXY_b;
     end
