@@ -134,7 +134,7 @@ machine = makeHFA("machine", makeTransition({
     x = v.x;
     y = v.y;
     a = v.a;
-    print("target X: " .. xPrime .. "\ttarget Y: " .. yPrime .. "\n";
+    print("target X: " .. xPrime .. "\ttarget Y: " .. yPrime .. "\n");
     deltaX = xPrime - x;
     deltaY = yPrime - y;
 
@@ -146,7 +146,7 @@ machine = makeHFA("machine", makeTransition({
 
     if math.abs(wcm.get_pose().a - aPrime) < 0.5 and xPrime ~= xDouble and yPrime ~= yDouble then --not yet at target 1
       return moveToXY_b;
-    else if math.abs(wcm.get_pose().a - aPrime) < 0.5  --at target 1, face target 2
+    elseif math.abs(wcm.get_pose().a - aPrime) < 0.5 then  --at target 1, face target 2
       return faceXY_b;
     else --at target 1, facing target 2
       stopRobot_b;
