@@ -14,7 +14,6 @@ darwin = require('hfaDriver')
 func = function (hfa) end
 
 init_j = {}
-localize = {}
 faceXY = {}
 moveToXY = {}
 stopRobot = {}
@@ -34,14 +33,13 @@ end
 --Init start. Literally just move forward for a bit, get the darwin going
 init_j["start"] = function(hfa) 
 	print("looking for ball in init_j");
-	darwin.scan();
 	darwin.setVelocity(0,0, 0.1);
+	darwin.scan();
 end
 
 -- Find the ball and track it
 faceXY["start"] = function (hfa)
   print("attempting to face ball and tracking");
-  darwin.track();
   v = wcm.get_pose();
   x = v.x;
   y = v.y;
@@ -55,11 +53,12 @@ faceXY["start"] = function (hfa)
   
   --rotate to face ball direction
   print("I am rotating to this angle: " .. aPrime .. "\n");
-  darwin.setVelocity(0,0,0.1);
+  darwin.setVelocity(0,0,0.1);  --rotate at 0.1 meters per second
 end
 
 -- Move to near the ball
 moveToXY["start"] = function (hfa)
+  v=wcm.get_pose();
   print("moving to ball");
   --stop prior movement
   darwin.stop();
@@ -93,7 +92,7 @@ machine = makeHFA("machine", makeTransition({
 			    
 		if math.abs(wcm.get_pose().a - angle ) < 0.5 then --turned at an angle close to the ball
 		  return moveToXY_b;  --move forward to it
-		else if wcm.get_horde_ballLost() ==0 then --lost the ball, find it again
+		else if vcm.get_ball_detect() == 0 then --lost the ball, find it again
 		  return init_jb;
 		else  --found ball, face it
 		  return faceXY_b;
@@ -101,7 +100,6 @@ machine = makeHFA("machine", makeTransition({
 	end,
 	      
 	[moveToXY_b] = function()
-		v=wcm.get_pose();
 		-- get close enough to kick
 		if vcm.get_ball_detect() == 0 then --lost ball again, find it
 		  return init_jb;
@@ -113,8 +111,12 @@ machine = makeHFA("machine", makeTransition({
 	end
 	
 	[stopRobot_b] = function()
-		if wcm.get_horde_ballLost() == 0 then --lost the ball, find it
+		if vcm.get_ball_detect()==0 then --lost the ball, find it
 		  return init_jb;
+		else if math.abs(wcm.get_pose().a - angle) > 0.5 then  --somehow it is at a different angle now, face it again
+		  return faceXY_b;
+		else if v.x ~=x and v.y ~= y then --ball must have moved, walk toward it
+		  return moveToXY_b;
 		else
 		  return stopRobot_b;
 	}))
