@@ -33,20 +33,15 @@ end
 
 --Init start. Literally just move forward for a bit, get the darwin going
 init_j["start"] = function(hfa) 
-	print("Init start");
-	--darwin.lookGoal();
-	darwin.setVelocity(0.03,0, 0);
-end
-
--- Look for the ball
-localize["start"] = function (hfa)
-  print("Looking for ball");
-  darwin.scan();
+	print("looking for ball in init_j");
+	darwin.scan();
+	darwin.setVelocity(0,0, 0.1);
 end
 
 -- Find the ball and track it
 faceXY["start"] = function (hfa)
-  print("facing ball");
+  print("attempting to face ball and tracking");
+  darwin.track();
   v = wcm.get_pose();
   x = v.x;
   y = v.y;
@@ -91,25 +86,14 @@ machine = makeHFA("machine", makeTransition({
 		if vcm.get_ball_detect() == 0 then   --cannot see ball, keep searching
 			return init_jb;
 		else   --can see ball, face it
-			darwin.track();
 			return faceXY_b;
 		end
 	end,
 	[faceXY_b] = function()  --if we're in faceXY
-		print("faceXY, facing ball");
-		x=v.x
-		y=v.y;
-		a=v.a;
-		
-		deltaX = vcm.get_ball_x() - x;
-		deltaY = vcm.get_ball_y() - y;
-		
-		angle = math.atan2(deltaY, deltaX);
-		    print("Desired angle: " .. angle .. "\n");
-		    
-		if math.abs(wcm.get_pose().a - angle ) < 0.5 then
-		  return moveToXY_b;
-		else if vcm.get_ball_detect() == 0 then --lost the ball, find it again
+			    
+		if math.abs(wcm.get_pose().a - angle ) < 0.5 then --turned at an angle close to the ball
+		  return moveToXY_b;  --move forward to it
+		else if wcm.get_horde_ballLost() ==0 then --lost the ball, find it again
 		  return init_jb;
 		else  --found ball, face it
 		  return faceXY_b;
@@ -127,6 +111,12 @@ machine = makeHFA("machine", makeTransition({
 		  return moveToXY_b;
 		end
 	end
+	
+	[stopRobot_b] = function()
+		if wcm.get_horde_ballLost() == 0 then --lost the ball, find it
+		  return init_jb;
+		else
+		  return stopRobot_b;
 	}))
 	
 --start main  
