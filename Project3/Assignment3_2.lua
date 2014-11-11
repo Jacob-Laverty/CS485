@@ -31,13 +31,18 @@ for k,v in ipairs(behaviors) do
   end
 end
 
---Init start. Literally look for ball and turn, get the darwin going
+--Init start. Literally just move forward for a bit, get the darwin going
 init_j["start"] = function(hfa) 
 	print("Init start");
-	darwin.scan();
-	darwin.setVelocity(0,0,0.2);  --turn if the ball can't be found
+	--darwin.lookGoal();
+	darwin.setVelocity(0.03,0, 0);
 end
 
+-- Look for the ball
+localize["start"] = function (hfa)
+  print("Looking for ball");
+  darwin.scan();
+end
 
 -- Find the ball and track it
 faceXY["start"] = function (hfa)
@@ -63,7 +68,7 @@ moveToXY["start"] = function (hfa)
   print("moving to ball");
   --stop prior movement
   darwin.stop();
-  darwin.setVelocity(0.1, 0, 0);
+  darwin.setVelocity(0.1, 0, 0);  --move forward at 0.1 meters per second
 end
 
 -- Stop darwin
@@ -84,8 +89,7 @@ machine = makeHFA("machine", makeTransition({
 	[init_jb] = function()
 		print("init_jb");
 		if vcm.get_ball_detect() == 0 then   --cannot see ball, keep searching
-			return init_jb;  --look and turn if can't detect ball
-
+			return init_jb;
 		else   --can see ball, face it
 			darwin.track();
 			return faceXY_b;
@@ -104,8 +108,10 @@ machine = makeHFA("machine", makeTransition({
 		    print("Desired angle: " .. angle .. "\n");
 		    
 		if math.abs(wcm.get_pose().a - angle ) < 0.5 then
-		  return moveToXY_b; --facing the ball, move to it
-		else
+		  return moveToXY_b;
+		else if vcm.get_ball_detect() == 0 then --lost the ball, find it again
+		  return init_jb;
+		else  --found ball, face it
 		  return faceXY_b;
 		end
 	end,
@@ -113,7 +119,9 @@ machine = makeHFA("machine", makeTransition({
 	[moveToXY_b] = function()
 		v=wcm.get_pose();
 		-- get close enough to kick
-		if v.x == x and v.y == y then
+		if vcm.get_ball_detect() == 0 then --lost ball again, find it
+		  return init_jb;
+		else if v.x == x and v.y == y then
 		  return stopRobot_b;
 		else
 		  return moveToXY_b;
