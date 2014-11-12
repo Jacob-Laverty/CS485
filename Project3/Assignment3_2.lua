@@ -20,6 +20,13 @@ faceBall = {}
 moveToBall = {}
 stopRobot = {}
 
+ballAngle =0;
+ballX = 0;
+ballY = 0;
+robotAngle = 0;
+robotX = 0;
+robotY = 0;
+
 behaviors = {initRobot, findBall, localize, faceBall, moveToBall, stopRobot}
 states = {"start", "go", "stop"}
 
@@ -34,8 +41,7 @@ end
 
 initRobot["start"] = function(hfa)
 	darwin.lookGoal();
-	darwin.setVelocity(0.01,0,0); --Move forward
-
+	darwin.setVelocity(0.02,0,0); --Move forward
 end
 
 --localize
@@ -56,17 +62,8 @@ end
 
 -- Find the ball and track it
 faceBall["start"] = function (hfa)
-  v = wcm.get_pose();
-  x = v.x;
-  y = v.y;
-  a = v.a;
-  
-  --turn to face the ball
-  deltaX = wcm.get_ball_x() - x;
-  deltaY = wcm.get_ball_y() - y;
   darwin.stop();  
-  angle = math.atan2(deltaX, deltaY);
- 		if (angle > a and (angle - math.pi) < a) or (a > angle and (a -  math.pi) <angle)  then
+ 		if (ballAngle > robotAngle and (ballAngle - math.pi) < robotAngle) or (RobotAngle > ballAngle and (robotAngle -  math.pi) > ballAngle)  then
 	 		darwin.setVelocity(0,0, 0.1);
  		else
 			darwin.setVelocity(0,0, -0.1);
@@ -76,9 +73,9 @@ end
 
 -- Move to near the ball
 moveToBall["start"] = function (hfa)
-  print("ball x location:  " .. wcm.get_ball_x() .. " and ball y location: " .. wcm.get_ball_y());
+  print("ball x location:  " .. ballX .. " and ball y location: " .. ballY);
 	darwin.stop();
-  darwin.setVelocity(0.05,0, 0);  --move forward at 0.03 meters per second
+  darwin.setVelocity(0.05,0, 0);  --move forward at 0.05 meters per second
 end
 
 -- Stop darwin
@@ -114,13 +111,16 @@ machine = makeHFA("machine", makeTransition({
 
 	[localize_b] = function()
 		v=wcm.get_pose();
-
+		
 		xDiff = math.abs((oldX - v.x) / ((oldX + v.x)/2));
 		yDiff = math.abs((oldY - v.y) / ((oldY + v.y)/2));
 
 		avgDiff = (xDiff + yDiff) /2;
 
 		if(avgDiff < 5) then
+			robotX = v.x;
+			robotY = v.y;
+			robotAngle = v.a;
 			return findBall_b;
 		else
 			return localize_b;
@@ -131,14 +131,19 @@ machine = makeHFA("machine", makeTransition({
 		if darwin.isBallLost() == 1 then   --cannot see ball, keep searching
 			return findBall_b;
 		else   --can see ball, face it
-			darwin.stop();
 			if vcm.get_ball_detect == 1 then
+				darwin.stop();
 				darwin.track();
-			end
-			robotTransitionDelay = os.time();
-			if (os.difftime(os.time(), robotTansitionDelay) > 3) then
-				print("facing ball");
+				ballX = vcm.get_ball_x();
+				ballY = vcm.get_ball_y();
+				ballAngle = math.atan2(ballY, ballX);
+				v = vcm.get_pose();
+				robotX = v.x;
+				robotY = v.y;
+				robotAngle = v.a;
 				return faceBall_b;
+			else 
+				return findBall_b;
 			end
 		end
 	end,
@@ -146,12 +151,17 @@ machine = makeHFA("machine", makeTransition({
 	[faceBall_b] = function()  --if we're in faceXY
 		-- Assume we rotoated to the correct angle
 		v=wcm.get_pose();
-		x=v.x;
-		y=v.y;
-		a=v.a;
-		print(math.abs(a-angle) .. " is the angle difference.");
-		if math.abs(a - angle ) < 0.05 then --turned at an angle close to the ball
-			print("current x: " .. v.x .. " and current y: " .. v.y);
+		robotX= v.x;
+		robotY= v.y;
+		robotAngle = v.a;
+		ballX = wcm.get_ball_x();
+		ballY = wcm.get_ball_y();
+		ballAngle = math.atan2(ballY, ballX);
+
+
+		print(math.abs(robotAngle - ballAngle) .. " is the angle difference.");
+		if math.abs(robotAngle - ballAngle ) < 0.05 then --turned at an angle close to the ball
+			darwin.stop();
 			return moveToBall_b;
 		else  --found ball, face it
 		  return faceBall_b;
@@ -163,16 +173,16 @@ machine = makeHFA("machine", makeTransition({
 		x=v.x;
 		y=v.y;
 		a=v.a;
-		xPosSquared = math.pow((wcm.get_ball_x() - x), 2);
-		yPosSquared = math.pow((wcm.get_ball_y() - y), 2);
-		distance = math.sqrt(xPosSquared + yPosSquared);
+		ballX = wcm.get_ball_x();
+		ballY = wcm.get_ball_y();
+		distance = math.sqrt((math.pow(ballX - x), 2)+ math.pow(ballY - y), 2);
 		-- get close enough to kick
-		if distance < 0.25 then
-			print("difference in x: " .. math.abs(v.x-x) .. " difference in y" .. math.abs(v.y-y));
-		  return stopRobot_b;
-		else --not there yet keep moving forward
-		  return moveToBall_b;
-		end
+		if(distance < 0.5) then
+			return stopRobot_b;
+		else
+			return moveToBall_b;
+		end	
+
 	end,
 	
 	[stopRobot_b] = function()
