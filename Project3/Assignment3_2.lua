@@ -6,19 +6,21 @@ darwin = require('hfaDriver')
 --[[
 -- BEHAVIORS
 -- localize		--wander if the ball is not seen
--- faceXY  		--X, Y are wcm.get_ball_x/y()
--- moveToXY		--used to move to a distance near the ball
+-- faceBall  		--X, Y are wcm.get_ball_x/y()
+-- moveToBall		--used to move to a distance near the ball
 -- Stop			--Stop the robot
 --]]
 
 func = function (hfa) end
 
-init_j = {}
-faceXY = {}
-moveToXY = {}
+initRobot = {}
+localize = {}
+findBall = {}
+faceBall = {}
+moveToBall = {}
 stopRobot = {}
 
-behaviors = {init_j, localize, faceXY, moveToXY, stopRobot}
+behaviors = {initRobot, findBall, localize, faceBall, moveToBall, stopRobot}
 states = {"start", "go", "stop"}
 
 for k,v in ipairs(behaviors) do
@@ -30,16 +32,30 @@ for k,v in ipairs(behaviors) do
   end
 end
 
+initRobot["start"] = function(hfa)
+	darwin.lookGoal();
+	darwin.setVelocity(0.01,0,0); --Move forward
+
+end
+
+--localize
+
+localize["start"] = function(hfa)
+	darwin.lookGoal();
+end
+
 --Init start. Literally just move forward for a bit, get the darwin going
-init_j["start"] = function(hfa) 
-	print("looking for ball in init_j");
-	darwin.setVelocity(0,0, 0.1);
-	darwin.scan();
+findBall["start"] = function(hfa) 
+	darwin.scan(); --look for ball
+	--if you can't find it start to rotate
+	if darwin.isBallLost() == 1 then
+		darwin.stop();
+		darwin.setVelocity(0,0, 0.2);
+		end
 end
 
 -- Find the ball and track it
-faceXY["start"] = function (hfa)
-  print("attempting to face ball and tracking");
+faceBall["start"] = function (hfa)
   v = wcm.get_pose();
   x = v.x;
   y = v.y;
@@ -48,79 +64,122 @@ faceXY["start"] = function (hfa)
   --turn to face the ball
   deltaX = wcm.get_ball_x() - x;
   deltaY = wcm.get_ball_y() - y;
-  
+  darwin.stop();  
   angle = math.atan2(deltaX, deltaY);
-  
+ 		if (angle > a and (angle - math.pi) < a) or (a > angle and (a -  math.pi) <angle)  then
+	 		darwin.setVelocity(0,0, 0.1);
+ 		else
+			darwin.setVelocity(0,0, -0.1);
+	 end 
   --rotate to face ball direction
-  print("I am rotating to this angle: " .. aPrime .. "\n");
-  darwin.setVelocity(0,0,0.1);  --rotate at 0.1 meters per second
 end
 
 -- Move to near the ball
-moveToXY["start"] = function (hfa)
-  v=wcm.get_pose();
-  print("moving to ball");
-  --stop prior movement
-  darwin.stop();
-  darwin.setVelocity(0.1, 0, 0);  --move forward at 0.1 meters per second
+moveToBall["start"] = function (hfa)
+  print("ball x location:  " .. wcm.get_ball_x() .. " and ball y location: " .. wcm.get_ball_y());
+	darwin.stop();
+  darwin.setVelocity(0.05,0, 0);  --move forward at 0.03 meters per second
 end
 
 -- Stop darwin
 stopRobot["start"] = function (hfa)
-  print("stopping");
   darwin.stop();
 end
 
 -- Make the behaviors
-init_jb 	= makeBehavior("init_j", init_j["start"], init_j["go"], init_j["stop"]);
-faceXY_b 	= makeBehavior("faceXY", faceXY["start"], faceXY["go"], faceXY["stop"]);
-moveToXY_b  	= makeBehavior("moveToXY", moveToXY["start"], moveToXY["go"], moveToXY["stop"]);
+initRobot_b 	= makeBehavior("initRobot", initRobot["start"], initRobot["go"], initRobot["stop"]);
+localize_b = makeBehavior("localize", localize["start"], localize["go"], localize["stop"]);
+findBall_b 	= makeBehavior("findBall", findBall["start"], findBall["go"], findBall["stop"]);
+faceBall_b 	= makeBehavior("faceBall", faceBall["start"], faceBall["go"], faceBall["stop"]);
+moveToBall_b  	= makeBehavior("moveToBall", moveToBall["start"], moveToBall["go"], moveToBall["stop"]);
 stopRobot_b 	= makeBehavior("stopRobot", stopRobot["start"], stopRobot["go"], stopRobot["stop"]);
+
+
+oldX = 0;
+oldY = 0;
+robotStartTime = os.time();
+robotTransitionDelay = 0;
 
 -- Make the HFA 
 machine = makeHFA("machine", makeTransition({
-  [start] = init_jb;
-	[init_jb] = function()
-		print("init_jb");
-		if vcm.get_ball_detect() == 0 then   --cannot see ball, keep searching
-			return init_jb;
-		else   --can see ball, face it
-			return faceXY_b;
+  [start] = initRobot_b;
+
+	[initRobot_b] = function()
+		if(os.difftime(os.time(), robotStartTime) > 20 ) then 
+			return localize_b;
+		else
+			return initRobot_b;
 		end
 	end,
-	[faceXY_b] = function()  --if we're in faceXY
-			    
-		if math.abs(wcm.get_pose().a - angle ) < 0.5 then --turned at an angle close to the ball
-		  return moveToXY_b;  --move forward to it
-		else if vcm.get_ball_detect() == 0 then --lost the ball, find it again
-		  return init_jb;
+
+	[localize_b] = function()
+		v=wcm.get_pose();
+
+		xDiff = math.abs((oldX - v.x) / ((oldX + v.x)/2));
+		yDiff = math.abs((oldY - v.y) / ((oldY + v.y)/2));
+
+		avgDiff = (xDiff + yDiff) /2;
+
+		if(avgDiff < 5) then
+			return findBall_b;
+		else
+			return localize_b;
+		end
+	end,
+
+	[findBall_b] = function()
+		if darwin.isBallLost() == 1 then   --cannot see ball, keep searching
+			return findBall_b;
+		else   --can see ball, face it
+			darwin.stop();
+			if vcm.get_ball_detect == 1 then
+				darwin.track();
+			end
+			robotTransitionDelay = os.time();
+			if (os.difftime(os.time(), robotTansitionDelay) > 3) then
+				print("facing ball");
+				return faceBall_b;
+			end
+		end
+	end,
+
+	[faceBall_b] = function()  --if we're in faceXY
+		-- Assume we rotoated to the correct angle
+		v=wcm.get_pose();
+		x=v.x;
+		y=v.y;
+		a=v.a;
+		print(math.abs(a-angle) .. " is the angle difference.");
+		if math.abs(a - angle ) < 0.05 then --turned at an angle close to the ball
+			print("current x: " .. v.x .. " and current y: " .. v.y);
+			return moveToBall_b;
 		else  --found ball, face it
-		  return faceXY_b;
+		  return faceBall_b;
 		end
 	end,
 	      
-	[moveToXY_b] = function()
+	[moveToBall_b] = function()
+	  v=wcm.get_pose();
+		x=v.x;
+		y=v.y;
+		a=v.a;
+		xPosSquared = math.pow((wcm.get_ball_x() - x), 2);
+		yPosSquared = math.pow((wcm.get_ball_y() - y), 2);
+		distance = math.sqrt(xPosSquared + yPosSquared);
 		-- get close enough to kick
-		if vcm.get_ball_detect() == 0 then --lost ball again, find it
-		  return init_jb;
-		else if v.x == x and v.y == y then
+		if distance < 0.25 then
+			print("difference in x: " .. math.abs(v.x-x) .. " difference in y" .. math.abs(v.y-y));
 		  return stopRobot_b;
-		else
-		  return moveToXY_b;
+		else --not there yet keep moving forward
+		  return moveToBall_b;
 		end
-	end
+	end,
 	
 	[stopRobot_b] = function()
-		if vcm.get_ball_detect()==0 then --lost the ball, find it
-		  return init_jb;
-		else if math.abs(wcm.get_pose().a - angle) > 0.5 then  --somehow it is at a different angle now, face it again
-		  return faceXY_b;
-		else if v.x ~=x and v.y ~= y then --ball must have moved, walk toward it
-		  return moveToXY_b;
-		else
-		  return stopRobot_b;
-	}))
+			darwin.stop();
+			return stopRobot_b;
+	end
+	}),false);
 	
 --start main  
 darwin.executeMachine(machine);
-  
