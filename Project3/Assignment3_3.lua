@@ -10,10 +10,12 @@ verifyBall = {}
 moveToBall = {}
 -- Face ball after we have moved to it
 faceBall = {}
+-- Kick the ball...swag
+kickBall = {}
 --Stop
 stopRobot = {}
 
-behaviors = {startupRobot, findBall, moveToBall, stopRobot, verifyBall, faceBall}
+behaviors = {startupRobot, findBall, moveToBall, stopRobot, verifyBall, faceBall, kickBall}
 
 states = {"start", "go", "stop"}
 
@@ -125,6 +127,10 @@ faceBall["go"] = function(hfa)
 	end
 end
 
+kickBall["start"] = function(hfa)
+	darwin.kickBall();
+end
+
 stopRobot["start"] = function(hfa) 
 	darwin.stop();
 end
@@ -148,6 +154,10 @@ moveToBallBehavior = makeBehavior("moveToBall", moveToBall["start"],
 faceBallBehavior = makeBehavior("faceBall", faceBall["start"],
 																						faceBall["stop"],
 																						faceBall["go"]);
+
+kickBallBehavior = makeBehavior("kickBall", kickBall["start"],
+																						kickBall["stop"],
+																						kickBall["go"]);
 
 stopRobotBehavior = makeBehavior("stopRobot", stopRobot["start"],
 																							stopRobot["stop"],
@@ -197,10 +207,15 @@ machine =  makeHFA("machine", makeTransition({
 	[faceBallBehavior] = function()
 		print("Arrived at ball turning to it now.");
 		if GlobalRobotVars.currBallY < 0.05 and GlobalRobotVars.currBallY > -0.05 then
-			return stopRobotBehavior;
+			return kickBallBehavior;
 		else
 			return faceBallBehavior;
 		end
+	end,
+
+	[kickBallBehavior] = function()
+		print("kicking the mofo ball");
+		return stopRobotBehavior;
 	end,
 
 	[stopRobotBehavior] = function()
