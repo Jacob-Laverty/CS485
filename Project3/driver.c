@@ -1,20 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
-
-typedef enum {TASK1, TASK2, TASK3, TASK4, TASK5} LuaTask;
-
-struct elem {
- LuaTask task;
- struct elem *next;
-};
+#include "driver.h"
 
 struct elem *start = NULL;
 struct elem *curr = NULL;
+
 void addTask(LuaTask task) {
   if(start == NULL) {
     if((start = malloc(sizeof(struct elem))) != NULL) {
@@ -65,26 +53,39 @@ int main(int argc, char **argv) {
   }
 
   curr = start;
+  char *file;
   while (curr != NULL) {
     switch(curr -> task) {
       case TASK1:
-        printf("running task1\n");
+        printf("loading task1\n");
+        file = T1;
         break;
       case TASK2:
-        printf("running task2\n");
+        printf("loading task2\n");
+        file = T2;
         break;
       case TASK3:
-        printf("running task3\n");
+        printf("loading task3\n");
         break;
       case TASK4:
-        printf("running task4\n");
+        printf("loading task4\n");
         break;
       case TASK5:
-        printf("running task5\n");
+        printf("loading task5\n");
         break;
       default:
         printf("I dont know what Im doing\n");
     }
+    if(luaL_loadfile(L, file)) {
+      fprintf(stderr, "ERROR: luaL_loadFile failed for: %s", lua_tostring(L, -1));
+    }
+    printf("Executing...\n");
+    if(lua_pcall(L, 0, 0, 0)) {
+      fprintf(stderr, "ERROR: luaL_pcall failed for: %s", lua_tostring(L, -1));
+    }
+    printf("Done. Shutting down task.\n");
+    lua_close(L);
+
     curr = curr -> next;
   }
   return 0;
