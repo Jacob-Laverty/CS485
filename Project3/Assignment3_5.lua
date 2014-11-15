@@ -2,24 +2,35 @@ darwin = require('hfaDriver')
 
 -- Used for localizing the robot
 startupRobot = {}
--- Used to locate the ball relative to the robot
-findBall = {}
---Used to make sure this is actually a ball
-verifyBall = {}
--- If we can see the ball relative to us, we want to move to it.
-moveToBall = {}
+
+-- pointTimeLocalize
+pointTimeLocalize = {};
+-- Face a point
+facePoint = {}
+-- Move to point
+moveToPoint = {}
+-- verify we are at the point
+verifyPoint = {}
+
+-- Wait on a ball to show up
+waitBall = {}
 -- Face ball after we have moved to it
 faceBall = {}
+-- If we can see the ball relative to us, we want to move to it.
+moveToBall = {}
+--Used to make sure this is actually a ball
+verifyBall = {}
 -- Move in a semicircle around the ball
 moveAroundBall = {}
 -- Kick the ball...swag
 kickBall = {}
+
 -- Localize for a time
 timeLocalize = {}
 --Stop
 stopRobot = {}
 
-behaviors = {startupRobot, findBall, moveToBall, stopRobot, verifyBall, faceBall, moveAroundBall, kickBall, timeLocalize}
+behaviors = {startupRobot, facePoint, moveToPoint, verifyPoint, waitBall,  moveToBall, faceBall, verifyBall, moveAroundBall, kickBall, stopRobot, timeLocalize, pointTimeLocalize}
 
 states = {"start", "go", "stop"}
 
@@ -32,10 +43,14 @@ for k,v in ipairs(behaviors) do
 end
 
 GlobalRobotVars = {currRobotX, currRobotY, currRobotHeading,
-			 						 currBallX, currBallY, XTarget, YTarget, localizeStartTime}
+			 						 currBallX, currBallY, XTarget, YTarget, 
+									 localizeBallStartTime, localizePointStartTime,
+									 goalTargetX, goalTargetY}
 
 GlobalRobotVars.XTarget = 0;
 GlobalRobotVars.YTarget = 0;
+GlobalRobotVars.goalTargetX = -2;
+GlobalRobotVars.goalTargetY = 0;
 
 startupRobot["start"] = function(hfa)
   print("Starting robot");
@@ -55,16 +70,67 @@ startupRobot["go"] = function(hfa)
 	GlobalRobotVars.currRobotHeading = v.a
 end
 
-findBall["start"] = function(hfa)
-	-- Just want to look around until we see something ball like
-	print("Looking for the ball");
+pointTimeLocalize["start"] = function(hfa)
+	print("Point Time Localize");
+	darwin.stop();
+	darwin.lookGoal();
+end
 
-	darwin.setVelocity(0, 0, -0.2); --turn clockwise since the ball is most likely
-	--somewhere to his right
-	darwin.scan();
+facePoint["start"] = function(hfa)
+	-- Just want to look around until we see something ball like
+	print("Face Point");
+	local v = wcm.get_pose();
+	GlobalRobotVars.currRobotX = v.x
+	GlobalRobotVars.currRobotY = v.y
+	GlobalRobotVars.currRobotHeading = v.a
+	
+	darwin.setVelocity(0, 0, -0.08);
+end
+
+facePoint["go"] = function(hfa)
+	local v = wcm.get_pose();
+	GlobalRobotVars.currRobotX = v.x
+	GlobalRobotVars.currRobotY = v.y
+	GlobalRobotVars.currRobotHeading = v.a
+end
+
+moveToPoint["start"] = function(hfa)
+	print("Move to point")
+	local v = wcm.get_pose();
+	GlobalRobotVars.currRobotX = v.x
+	GlobalRobotVars.currRobotY = v.y
+	GlobalRobotVars.currRobotHeading = v.a;
+	darwin.setVelocity(0.03, 0, 0);
+end
+
+moveToPoint["go"] = function(hfa)
+	local v = wcm.get_pose();
+	GlobalRobotVars.currRobotX = v.x;
+	GlobalRobotVars.currRobotY = v.y;
+	GlobalRobotVars.currRobotHeading = v.a;
+end
+
+verifyPoint["start"] = function(hfa)
+	print("verify point")
+	darwin.stop();
+end
+
+waitBall["start"] = function(hfa)
+	print("wait ball");
+	darwin.stop();
+	if vcm.get_ball_detect() == 1 then
+		darwin.track();
+		-- if i can see the ball 
+		-- set where the ball is
+		GlobalRobotVars.currBallX = wcm.get_ball_x();
+		GlobalRobotVars.currBallY = wcm.get_ball_y();
+	else
+		darwin.stop();
+	end
 end
 
 verifyBall["start"] = function(hfa)
+	print("verify ball");
 	-- I think we found a ball. Lets stop
 	darwin.track();
 end
@@ -170,38 +236,58 @@ stopRobot["start"] = function(hfa)
 	darwin.stop();
 end
 
+-- Startup
 startupRobotBehavior = makeBehavior("startupRobot", startupRobot["start"],
 																										startupRobot["stop"],
 																										startupRobot["go"]);
+-- Go To Point
+facePointBehavior = makeBehavior("facePoint", facePoint["start"],
+																							facePoint["stop"],
+																							facePoint["go"]);
 
-findBallBehavior = makeBehavior("findBall", findBall["start"],
-																						findBall["stop"],
-																						findBall["go"]);
+moveToPointBehavior = makeBehavior("moveToPoint", moveToPoint["start"],
+																									moveToPoint["stop"],
+																									moveToPoint["go"])
 
-verifyBallBehavior = makeBehavior("verifyBall", verifyBall["start"],
-																								verifyBall["stop"],
-																								verifyBall["go"]);
+verifyPointBehavior = makeBehavior("verifyPoint", verifyPoint["start"],
+																									verifyPoint["stop"],
+																									verifyPoint["go"])
+
+waitBallBehavior = makeBehavior("waitBall", waitBall["start"],
+																						waitBall["stop"],
+																						waitBall["go"]);
+-- Go To Ball
+faceBallBehavior = makeBehavior("faceBall", faceBall["start"],
+																						faceBall["stop"],
+																						faceBall["go"]);
 
 moveToBallBehavior = makeBehavior("moveToBall", moveToBall["start"],
 																								moveToBall["stop"],
 																								moveToBall["go"]);
 
-faceBallBehavior = makeBehavior("faceBall", faceBall["start"],
-																						faceBall["stop"],
-																						faceBall["go"]);
+verifyBallBehavior = makeBehavior("verifyBall", verifyBall["start"],
+																								verifyBall["stop"],
+																								verifyBall["go"]);
 
+-- Face Kick point
 moveAroundBallBehavior = makeBehavior("moveAroundBall", moveAroundBall["start"],
 																					      moveAroundBall["stop"],
       																					moveAroundBall["go"]);
 
+-- Kick ball
 kickBallBehavior = makeBehavior("kickBall", kickBall["start"],
 																						kickBall["stop"],
 																						kickBall["go"]);
 
-timeLocalizeBehavior = makeBehavior("timeLocalizeBehavior", timeLocalize["start"],
+pointTimeLocalizeBehavior = makeBehavior("pointTimeLocalize", pointTimeLocalize["start"],
+																															pointTimeLocalize["stop"],
+																															pointTimeLocalize["go"]);
+-- Localize based off of time
+timeLocalizeBehavior = makeBehavior("timeLocalize", timeLocalize["start"],
 																														timeLocalize["stop"],
 																														timeLocalize["go"])
 
+-- Stop...
 stopRobotBehavior = makeBehavior("stopRobot", stopRobot["start"],
 																							stopRobot["stop"],
 																							stopRobot["go"]);
@@ -211,19 +297,87 @@ machine =  makeHFA("machine", makeTransition({
 	[start] = startupRobotBehavior;	
 	[startupRobotBehavior] = function()
 		if(os.difftime(os.time(), robotStartupTime)) > 20 then
-			return findBallBehavior
+			GlobalRobotVars.localizePointStartTime = os.time();
+			return pointTimeLocalizeBehavior
 		else
 			return startupRobotBehavior
 		end	
 	end,
 
-	[findBallBehavior] = function()
-		if vcm.get_ball_detect() == 1 then
-			robotBallTime = os.time();
-			return verifyBallBehavior
+	[pointTimeLocalizeBehavior] = function()
+		if os.difftime(os.time(), GlobalRobotVars.localizePointStartTime) < 5 then
+			return pointTimeLocalizeBehavior;
 		else
-			return findBallBehavior;
-		end	
+			return facePointBehavior
+		end
+	end,
+
+	[facePointBehavior] = function()
+		local normalX = GlobalRobotVars.XTarget - GlobalRobotVars.currRobotX;
+		local normalY = GlobalRobotVars.YTarget - GlobalRobotVars.currRobotY;
+
+		local normalHeading = math.atan2(normalY, normalX);
+	
+		print("Current Heading: "..(GlobalRobotVars.currRobotHeading*180)/math.pi.." \tAngle to point: "..(normalHeading*180)/math.pi.."\tRobot (x,y): "..GlobalRobotVars.currRobotX..", "..GlobalRobotVars.currRobotY);
+		if math.abs(((GlobalRobotVars.currRobotHeading*180)/math.pi) - ((normalHeading*180)/math.pi)) < 3 then
+			-- I am facing my point
+			return moveToPointBehavior;
+		else
+			return facePointBehavior;
+		end
+	end,
+
+	[moveToPointBehavior] = function()
+		local xDistance = math.pow((GlobalRobotVars.XTarget - GlobalRobotVars.currRobotX), 2)
+		local yDistance = math.pow((GlobalRobotVars.YTarget - GlobalRobotVars.currRobotY), 2)
+		local pointDistance = math.sqrt(xDistance + yDistance);
+
+		local normalX = GlobalRobotVars.XTarget - GlobalRobotVars.currRobotX;
+		local normalY = GlobalRobotVars.YTarget - GlobalRobotVars.currRobotY;
+
+		local normalHeading = math.atan2(normalY, normalX);
+
+		if pointDistance < 0.5 then
+			-- I am at my point
+			return verifyPointBehavior;
+		end
+		print("Robot X: "..GlobalRobotVars.currRobotX.." \tRobot Y: "..GlobalRobotVars.currRobotY.." \tDistance to Point: "..pointDistance);
+		if math.abs(((GlobalRobotVars.currRobotHeading*180)/math.pi) - ((normalHeading*180)/math.pi)) < 20 then
+			return moveToPointBehavior;
+		else
+			GlobalRobotVars.localizePointStartTime = os.time();
+			return pointTimeLocalizeBehavior;
+		end
+	end,
+
+	[verifyPointBehavior] = function()
+		local xDistance = math.pow((GlobalRobotVars.XTarget - GlobalRobotVars.currRobotX), 2)
+		local yDistance = math.pow((GlobalRobotVars.YTarget - GlobalRobotVars.currRobotY), 2)
+		local pointDistance = math.sqrt(xDistance + yDistance);
+		if pointDistance < 0.5 then
+			return waitBallBehavior
+		end
+	end,
+
+	[waitBallBehavior] = function()
+		-- If I can currently see the ball
+		if vcm.get_ball_detect() == 1  then
+			darwin.track();
+			GlobalRobotVars.currBallX = wcm.get_ball_x();
+			GlobalRobotVars.currBallY = wcm.get_ball_y();
+			local xDistance = math.pow(GlobalRobotVars.currBallX, 2);
+			local yDistance = math.pow(GlobalRobotVars.currBallY, 2);
+			local ballDistance = math.sqrt(xDistance + yDistance);
+
+			if ballDistance < 0.5 then
+				-- I am close enough to the ball
+				return verifyBallBehavior;
+			else
+				return waitBallBehavior;
+			end
+		else 
+			return waitBallBehavior;
+		end
 	end,
 
 	[verifyBallBehavior] = function()
@@ -260,8 +414,8 @@ machine =  makeHFA("machine", makeTransition({
 
 	[moveAroundBallBehavior] = function()
 		-- Find the normal X and Y
-		local normalX =  GlobalRobotVars.XTarget - GlobalRobotVars.currRobotX;
-		local normalY =  GlobalRobotVars.YTarget - GlobalRobotVars.currRobotY;
+		local normalX =  GlobalRobotVars.goalTargetX - GlobalRobotVars.currRobotX;
+		local normalY =  GlobalRobotVars.goalTargetY - GlobalRobotVars.currRobotY;
 
 		--Find normal a normal heading
 		local normalHeading = math.atan2(normalY, normalX);

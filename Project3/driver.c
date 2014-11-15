@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
       default:
         printf("I dont know what Im doing\n");
     }
+
     if(luaL_loadfile(L, file)) {
       fprintf(stderr, "ERROR: luaL_loadFile failed for: %s", lua_tostring(L, -1));
     }
